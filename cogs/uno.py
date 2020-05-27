@@ -367,8 +367,8 @@ class Game:
             if playable:
                 if cards[i].reaction > 0:
                     img.paste(Image.open(reaction_image_files[cards[i].reaction]), (card_w * x + 45, card_h * y + 5))
-        img.save('i.png')
-        msg = await self.hand_channel.send(file=discord.File('i.png'))
+        img.save(f'./img/{self.guild.id}.png')
+        msg = await self.hand_channel.send(file=discord.File(f'./img/{self.guild.id}.png'))
         return msg.attachments[0].url
 
     async def on_reaction_add(self, reaction, user):
