@@ -186,6 +186,12 @@ wild_embed = discord.Embed(
     color=colours[5]
 )
 
+iplay = [
+    'a', 'b', 'c', 'd', 'e', 'f',
+    'g', 'h', 'i', 'j', 'k', 'l',
+    'm', 'n', 'p', 'q', 'r'
+]
+
 
 class Player:
     def __init__(self, user, cards, channel, embed, msg):
@@ -195,6 +201,7 @@ class Player:
         self.embed = embed
         self.msg = msg
         self.kick_msg = None
+        self.interface = 0
 
 
 class Card:
@@ -588,6 +595,45 @@ class Game:
             else:
                 await self.now_play(card)
 
+    async def play(self, ctx, letter, color='none'):
+        if not self.p_now:
+            return
+        if ctx.channel.id != self.p_now.channel.id:
+            return
+        if ctx.author.id != self.p_now.user.id:
+            return
+        card = 0
+        i = iplay.index(letter) + 1
+        for c in self.p_now.cards:
+            if i == c.reaction:
+                card = c
+                break
+        if card == 0:
+            return
+        await self.p_now.msg.clear_reactions()
+        if card.number == 50 or card.number == 51:
+            if color == 'r' or color == 'red':
+                card.suit = 0
+            elif color == 'y' or color == 'yellow':
+                card.suit = 1
+            elif color == 'g' or color == 'green':
+                card.suit = 2
+            elif color == 'b' or color == 'blue':
+                card.suit = 3
+            else:
+                return
+        await self.now_play(card)
+
+    async def draw(self, ctx):
+        if not self.p_now:
+            return
+        if ctx.channel.id != self.p_now.channel.id:
+            return
+        if ctx.author.id != self.p_now.user.id:
+            return
+        await self.p_now.msg.clear_reactions()
+        await self.now_draw()
+
     async def now_draw(self):
         c = self.draw_pile.pop(0)
         dp0 = self.discard_pile[0]
@@ -855,6 +901,7 @@ class uno(commands.Cog):
         self.hand_channel = client.get_channel(714679847418331146)
         self.games = []
         self.t = time.time()
+        self.active = True
 
     async def post_instructions(self, channel):
         d = [
@@ -1126,6 +1173,8 @@ class uno(commands.Cog):
 
     @commands.command()
     async def open(self, ctx):
+        if not self.active:
+            return
         for g in self.games:
             if ctx.guild == g.guild:
                 return
@@ -1138,6 +1187,22 @@ class uno(commands.Cog):
         for g in self.games:
             if ctx.guild == g.guild:
                 await g.start_game(ctx.channel)
+                break
+
+    @commands.command()
+    async def play(self, ctx, card, color='none'):
+        for g in self.games:
+            if ctx.guild == g.guild:
+                await g.play(ctx, card, color)
+                await ctx.message.delete(delay=2)
+                break
+
+    @commands.command()
+    async def draw(self, ctx):
+        for g in self.games:
+            if ctx.guild == g.guild:
+                await g.draw(ctx)
+                await ctx.message.delete(delay=2)
                 break
 
     @commands.command()
@@ -1189,6 +1254,31 @@ class uno(commands.Cog):
             await ctx.author.dm_channel.send('https://discord.gg/FENwAjR')
         else:
             await (await ctx.author.create_dm()).send('https://discord.gg/FENwAjR')
+
+    @commands.command()
+    async def shutdown(self, ctx):
+        if ctx.author.id != 173405776713482240:
+            return
+        self.active = False
+        for g in self.games:
+            await g.close_game()
+            self.games.remove(g)
+        await self.client.close()
+
+    @commands.command()
+    async def activate(self, ctx):
+        if ctx.author.id != 173405776713482240:
+            return
+        self.active = True
+
+    @commands.command()
+    async def deactivate(self, ctx):
+        if ctx.author.id != 173405776713482240:
+            return
+        self.active = False
+        for g in self.games:
+            await g.close_game()
+            self.games.remove(g)
 
 
 def setup(client):
