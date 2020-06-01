@@ -1,9 +1,7 @@
 class Card:
-    def __init__(self, suit, number, url, img):
+    def __init__(self, suit, number):
         self.number = number
         self.suit = suit
-        self.url = url
-        self.img = img
         self.reaction = 0
         self.name = ''
 

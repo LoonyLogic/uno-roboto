@@ -13,4 +13,6 @@ async def on_ready():
     await channel.send("I am ready.")
 
 
-client.run('NzExMjg3MTMwMzc4MjA3MzYy.XsAz3Q.M47ow48xbMj8Zx87qqYqAfN1Was')
+f = open('Token.txt', 'r')
+client.run(f.read())
+f.close()

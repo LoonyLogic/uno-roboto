@@ -1,9 +1,7 @@
 import discord
 
-
-class Glob:
-    def __init__(self):
-        self.card_image_urls = [
+alpha_image_file = './unocards/alpha.png'
+card_image_urls = [
             [
                 'https://cdn.discordapp.com/attachments/714679761237966858/714708626190762004/r0.png',
                 'https://cdn.discordapp.com/attachments/714679761237966858/714708627105120317/r1.png',
@@ -65,7 +63,7 @@ class Glob:
                 'https://cdn.discordapp.com/attachments/714679761237966858/714708846299578418/bs.png',
             ]
         ]
-        self.card_image_files = [
+card_image_files = [
             [
                 './unocards/r0.png',
                 './unocards/r1.png',
@@ -127,28 +125,28 @@ class Glob:
                 './unocards/bs.png'
             ]
         ]
-        self.wild_image_urls = [
+wild_image_urls = [
             'https://cdn.discordapp.com/attachments/714679761237966858/714708847410937916/z.png',
             'https://cdn.discordapp.com/attachments/714679761237966858/714708848283353128/zd.png'
         ]
-        self.wild_image_files = [
+wild_image_files = [
             './unocards/z.png',
             './unocards/zd.png'
         ]
-        self.colours = [
-            discord.colour.Color.from_rgb(200, 50, 50),
-            discord.colour.Color.from_rgb(200, 200, 50),
-            discord.colour.Color.from_rgb(50, 200, 50),
-            discord.colour.Color.from_rgb(50, 50, 200),
-            discord.colour.Color.from_rgb(200, 200, 200),
-            discord.colour.Color.from_rgb(0, 0, 0)
-        ]
-        self.reaction_emojis = [
+red = discord.colour.Color.from_rgb(200, 50, 50)
+yellow = discord.colour.Color.from_rgb(200, 200, 50)
+green = discord.colour.Color.from_rgb(50, 200, 50)
+blue = discord.colour.Color.from_rgb(50, 50, 200)
+white = discord.colour.Color.from_rgb(200, 200, 200)
+gray = discord.colour.Color.from_rgb(0, 0, 0)
+purple = discord.colour.Color.from_rgb(200, 50, 200)
+colours = [red, yellow, green, blue, white]
+reaction_emojis = [
             '🅾', '🇦', '🇧', '🇨', '🇩', '🇪',
             '🇫', '🇬', '🇭', '🇮', '🇯', '🇰',
             '🇱', '🇲', '🇳', '🇵', '🇶', '🇷',
         ]
-        self.reaction_image_files = [
+reaction_image_files = [
             './unocards/o2.png',
             './unocards/qa.png',
             './unocards/qb.png',
@@ -168,7 +166,28 @@ class Glob:
             './unocards/qq.png',
             './unocards/qr.png'
         ]
-        self.join_emoji = '☑'
-        self.kick_emoji = '🦿'
-        self.draw_emoji = '🅾'
-        self.start_emoji = ''
+color_emojis = [
+        '🔴', '🟡', '🟢', '🔵'
+]
+letters = [
+    'a', 'b', 'c', 'd', 'e', 'f',
+    'g', 'h', 'i', 'j', 'k', 'l',
+    'm', 'n', 'p', 'q', 'r'
+]
+join_emoji = '☑'
+kick_emoji = '🦿'
+draw_emoji = '🅾'
+start_emoji = ''
+wild_embed = discord.Embed(
+    title='Choose a color!',
+    description='🔴red, 🟡yellow, 🟢green, or 🔵blue',
+    color=colours[5]
+)
+no_perms = discord.PermissionOverwrite(read_messages=False, send_messages=False, add_reactions=False)
+yes_perms = discord.PermissionOverwrite(read_messages=True, send_messages=True, add_reactions=True)
+timeout = 15.0
+support = 'https://discord.gg/jzXweNr'
+invite = 'https://discord.com/api/oauth2/authorize?client_id=711287130378207362&permissions=11344&scope=bot'
+acts = {
+
+}
