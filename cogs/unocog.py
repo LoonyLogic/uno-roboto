@@ -7,7 +7,7 @@ from uno.gameManager import GameManager
 
 def is_me():
     def predicate(ctx):
-        return ctx.message.author.id == 173405776713482240 and ctx.guild == 714677809666326619
+        return ctx.message.author.id == 173405776713482240
     return commands.check(predicate)
 
 

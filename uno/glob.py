@@ -178,10 +178,16 @@ join_emoji = '☑'
 kick_emoji = '🦿'
 draw_emoji = '🅾'
 start_emoji = ''
+wild_colors = [
+    '🔴red',
+    '🟡yellow',
+    '🟢green',
+    '🔵blue'
+]
 wild_embed = discord.Embed(
     title='Choose a color!',
-    description='🔴red, 🟡yellow, 🟢green, or 🔵blue',
-    color=colours[5]
+    description=' '.join(wild_colors),
+    color=gray
 )
 no_perms = discord.PermissionOverwrite(read_messages=False, send_messages=False, add_reactions=False)
 yes_perms = discord.PermissionOverwrite(read_messages=True, send_messages=True, add_reactions=True)

@@ -55,7 +55,7 @@ class GuildGame:
         embed.add_field(name='PLAYING NOW', value='NA')
         embed.add_field(name='PLAYING NEXT', value='NA')
         embed.add_field(name='RECENT ACTION', value='You joined the game', inline=False)
-        msg = channel.send(embed)
+        msg = await channel.send(embed=embed)
         self.pid.append(user.id)
         self.user_players[user.id] = GuildPlayer(user, channel, msg, embed)
         await self.update_join_msg()
@@ -94,7 +94,7 @@ class GuildGame:
         self.game_stage = 'play'
         await self.game_msg.clear_reactions()
 
-        self.set_action_note(self.game.start_game(number))
+        await self.set_action_note(self.game.start_game(number))
         random.shuffle(self.pid)
         self.clockwise_order = []
         self.counterclockwise_order = []
@@ -103,19 +103,19 @@ class GuildGame:
             player.set_player(self.game.players[i])
             self.clockwise_order.append(player.name)
             self.counterclockwise_order.insert(0, player.name)
-        for p in self.user_players.values():
-            p.embed.set_footer(text=' -> '.join(self.clockwise_order))
-        self.next()
+            img_url = await self.imager(self.guild.id, player.player.cards)
+            player.embed.set_image(url=img_url)
 
         self.game_embed.title = ''
         self.game_embed.description = ''
         self.game_embed.clear_fields()
-        self.game_embed.add_field(name='PLAYING NOW', value=self.up_now.name)
-        self.game_embed.add_field(name='PLAYING NEXT', value=self.up_next.name)
-        self.game_embed.add_field(name='RECENT ACTION', value=self.action_note, inline=False)
-        await self.update_all_players()
+        self.game_embed.add_field(name='PLAYING NOW', value='NA')
+        self.game_embed.add_field(name='PLAYING NEXT', value='NA')
+        self.game_embed.add_field(name='RECENT ACTION', value='NA', inline=False)
 
-    def set_action_note(self, action):
+        await self.next()
+
+    async def set_action_note(self, action):
         note = ''
         if action.act_flags.has_actor:
             note += self.user_players[self.pid[action.actor]].name
@@ -127,24 +127,45 @@ class GuildGame:
                 target = self.user_players[self.pid[action.target]].name
                 if action.act_flags.is_draw2:
                     note += f' compels {target} to draw 2 cards'
+                    player = self.user_players[self.pid[action.target]]
+                    img_url = await self.imager(self.guild.id, player.player.cards)
+                    player.embed.set_image(url=img_url)
                 elif action.act_flags.is_skip:
                     note += f' skips {target}\'s turn'
                 elif action.act_flags.is_draw4:
                     note += f' compels {target} to draw 4 cards'
-                    if action.has_color:
-                        note += f', and chooses {action.color}'
+                    player = self.user_players[self.pid[action.target]]
+                    img_url = await self.imager(self.guild.id, player.player.cards)
+                    player.embed.set_image(url=img_url)
+                    if action.act_flags.has_color:
+                        note += f', and chooses {uno.glob.wild_colors[action.color]}'
                 elif action.act_flags.is_play:
                     note += f' played a {action.card}'
-                    if action.has_color:
-                        note += f', and chooses {action.color}'
-            if action.act_flags.is_reverse:
+                    if action.act_flags.has_color:
+                        note += f', and chooses {uno.glob.wild_colors[action.color]}'
+            elif action.act_flags.is_reverse:
                 note += ' reverses the order of play'
-            if action.act_flags.is_kick:
+            elif action.act_flags.is_play:
+                note += f' played a {action.card}'
+                if action.act_flags.has_color:
+                    note += f', and chooses {uno.glob.wild_colors[action.color]}'
+            if action.act_flags.is_exit:
                 note += ' was removed from the game'
             if action.act_flags.is_end:
-                note += ' won this game'
+                note += ' won this game.'
+        elif action.act_flags.is_start:
+            if action.act_flags.has_target:
+                target = self.user_players[self.pid[action.target]].name
+                if action.act_flags.is_draw2:
+                    note += f'{target} starts by drawing 2 cards'
+                elif action.act_flags.is_skip:
+                    note += f'{target} starts by being skipped'
+            elif action.act_flags.is_reverse:
+                note += 'This game starts in reverse order'
+            else:
+                note += f'This game starts with {action.card}'
         elif action.act_flags.is_end:
-            note += 'This game has ended. No one won'
+            note += 'This game has ended. No one won.'
         note += '.'
         self.action_note = note
 
@@ -164,19 +185,17 @@ class GuildGame:
         await self.game_msg.edit(embed=self.game_embed)
 
         for up in self.user_players.values():
+            up.embed.description += f' {self.up_now.name} is playing now.'
             up.embed.colour = uno.glob.colours[top.suit]
             up.embed.set_thumbnail(url=top_url)
             up.embed.set_field_at(0, name='PLAYING NOW', value=self.up_now.name)
             up.embed.set_field_at(1, name='PLAYING NEXT', value=self.up_next.name)
             up.embed.set_field_at(2, name='RECENT ACTION', value=self.action_note, inline=False)
-            await up.msg.edit(embed=up.embed)
 
         if self.up_prev:
-            self.up_prev.embed.description += f' {self.up_now.name} is playing now.'
-            if len(self.up_prev.player.cards) > 0:
-                img_url = await self.imager(self.guild.id, self.up_prev.cards)
-                self.up_prev.embed.set_image(url=img_url)
-                self.up_prev.embed.set_thumbnail(url=top_url)
+            img_url = await self.imager(self.guild.id, self.up_prev.player.cards)
+            self.up_prev.embed.set_image(url=img_url)
+            self.up_prev.embed.set_thumbnail(url=top_url)
             await self.up_prev.msg.edit(embed=self.up_prev.embed)
 
         self.up_next.embed.description = f'{self.up_now.name} is playing now. Your turn to play next.'
@@ -192,12 +211,43 @@ class GuildGame:
         self.up_now.embed.description = 'It is now your turn to play.'
         self.up_now.embed.colour = uno.glob.colours[top.suit]
         self.up_now.embed.set_thumbnail(url=top_url)
-        img_url = await self.imager(self.guild.id, self.up_now.player.cards, True)
+        img_url = await self.imager(self.guild.id, self.up_now.player.cards, self.game.playable_cards)
         self.up_now.embed.set_image(url=img_url)
         await self.up_now.msg.edit(embed=self.up_now.embed)
         self.time_stamp = time.time()
         for i in range(len(self.game.playable_cards) + 1):
             await self.up_now.msg.add_reaction(uno.glob.reaction_emojis[i])
+
+    async def update_all_players_end(self):
+        top = self.game.discard_pile[0]
+        top_url = ''
+        if top.number >= 50:
+            top_url = uno.glob.wild_image_urls[top.number - 50]
+        else:
+            top_url = uno.glob.card_image_urls[top.suit][top.number]
+        self.game_embed.colour = uno.glob.colours[top.suit]
+        self.game_embed.set_image(url=top_url)
+        self.game_embed.set_author(name=self.up_now.name, icon_url=self.up_now.url)
+        self.game_embed.set_field_at(0, name='WINNER', value=self.up_now.name)
+        self.game_embed.set_field_at(2, name='RECENT ACTION', value=self.action_note, inline=False)
+        self.game_embed.remove_field(1)
+        await self.game_msg.edit(embed=self.game_embed)
+
+        if self.up_prev:
+            img_url = await self.imager(self.guild.id, self.up_prev.player.cards)
+            self.up_prev.embed.set_image(url=img_url)
+        self.up_now.embed.set_image(url='')
+
+        for up in self.user_players.values():
+            up.embed.description += f' {self.up_now.name} won this game.'
+            up.embed.colour = uno.glob.colours[top.suit]
+            up.embed.set_thumbnail(url=top_url)
+            up.embed.set_field_at(0, name='WINNER', value=self.up_now.name)
+            up.embed.set_field_at(2, name='RECENT ACTION', value=self.action_note, inline=False)
+            up.embed.remove_field(1)
+            await up.msg.edit(embed=up.embed)
+
+        await self.up_now.msg.edit(embed=self.up_now.embed)
 
     async def reaction_play(self, reaction, user):
         if self.up_now:
@@ -211,24 +261,39 @@ class GuildGame:
         if reaction.emoji in uno.glob.color_emojis:
             await self.wild_msg.delete()
             suit = uno.glob.color_emojis.index(reaction.emoji)
-            self.set_action_note(await self.game.play(self.wild_card, suit))
+            action = self.game.play(self.wild_card, suit)
+            await self.set_action_note(action)
+            if action.act_flags.is_end:
+                await self.now_win()
+            else:
+                await self.next()
         elif reaction.emoji == uno.glob.draw_emoji:
             await self.up_now.msg.clear_reactions()
-            self.set_action_note(await self.game.draw())
+            action = self.game.draw()
+            await self.set_action_note(action)
+            if action.act_flags.is_end:
+                await self.now_win()
+            else:
+                await self.next()
         elif reaction.emoji in uno.glob.reaction_emojis:
-            i = uno.glob.reaction_emojis.index(reaction.emoji)
+            i = uno.glob.reaction_emojis.index(reaction.emoji) - 1
             if i >= len(self.game.playable_cards):
                 return
             await self.up_now.msg.clear_reactions()
             c = self.game.playable_cards[i]
-            if c.number == 50 or c.number == 51:
+            if c.startswith('wild'):
                 self.wild_card = i
-                uno.glob.wild_embed.set_footer(text=c.name)
+                uno.glob.wild_embed.set_footer(text=c)
                 self.wild_msg = await self.up_now.channel.send(embed=uno.glob.wild_embed)
                 for e in uno.glob.color_emojis:
                     await self.wild_msg.add_reaction(e)
             else:
-                self.set_action_note(await self.game.play(i))
+                action = self.game.play(i)
+                await self.set_action_note(action)
+                if action.act_flags.is_end:
+                    await self.now_win()
+                else:
+                    await self.next()
 
     async def play(self, channel_id, user_id, letter, color='none'):
         if not self.up_now:
@@ -254,9 +319,12 @@ class GuildGame:
             else:
                 return
         await self.up_now.msg.clear_reactions()
-        self.set_action_note(await self.game.play(i, suit))
-        self.next()
-        await self.update_all_players()
+        action = self.game.play(i, suit)
+        await self.set_action_note(action)
+        if action.act_flags.is_end:
+            await self.now_win()
+        else:
+            await self.next()
 
     async def draw(self, channel_id, user_id):
         if not self.up_now:
@@ -266,11 +334,14 @@ class GuildGame:
         if user_id != self.up_now.user.id:
             return
         await self.up_now.msg.clear_reactions()
-        self.set_action_note(await self.game.draw())
-        self.next()
-        await self.update_all_players()
+        action = self.game.draw()
+        await self.set_action_note(action)
+        if action.act_flags.is_end:
+            await self.now_win()
+        else:
+            await self.next()
 
-    def next(self):
+    async def next(self):
         for up in self.user_players.values():
             if self.game.order == 1:
                 up.embed.set_footer(text=' -> '.join(self.clockwise_order))
@@ -283,8 +354,11 @@ class GuildGame:
                 self.up_now = up
             if self.game.p_next == up.player:
                 self.up_next = up
+        await self.update_all_players()
 
     async def now_win(self):
+        self.game_stage = 'end'
+        await self.update_all_players_end()
         for up in self.user_players.values():
             embed = discord.Embed(
                 title=f'{self.up_now.name} won this game!',
@@ -294,6 +368,7 @@ class GuildGame:
             await up.channel.send(embed=embed)
         time.sleep(5.0)
         self.game_stage = 'join'
+        self.game.new_game()
         for up in self.user_players.values():
             await up.channel.delete()
         self.user_players = {}
@@ -405,16 +480,19 @@ class GuildGame:
             await up.kick_msg.edit(embed=embed)
             await up.kick_msg.delete(delay=2)
             up.kick_msg = None
-        self.set_action_note(self.game.kick_now())
+        action = self.game.kick_now()
+        await self.set_action_note(action)
         await self.up_now.channel.delete()
         del self.user_players[self.up_now.id]
+        if action.act_flags.is_end:
+            await self.now_win()
+            return
         self.clockwise_order = []
         self.counterclockwise_order = []
         for up in self.user_players.values():
             self.clockwise_order.append(up.user.display_name)
             self.counterclockwise_order.insert(0, up.user.display_name)
-        self.next()
-        await self.update_all_players()
+        await self.next()
 
     async def user_exit(self, user):
         if self.game_stage != 'play':
@@ -428,13 +506,16 @@ class GuildGame:
             )
             msg = await up.channel.send(embed=embed)
             await msg.delete(delay=2)
-        self.set_action_note(self.game.remove_player(player.player))
+        action = self.game.remove_player(player.player)
+        await self.set_action_note(action)
         await player.channel.delete()
         del self.user_players[player.id]
+        if action.act_flags.is_end:
+            await self.now_win()
+            return
         self.clockwise_order = []
         self.counterclockwise_order = []
         for up in self.user_players.values():
             self.clockwise_order.append(up.user.display_name)
             self.counterclockwise_order.insert(0, up.user.display_name)
-        self.next()
-        await self.update_all_players()
+        await self.next()

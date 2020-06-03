@@ -1,7 +1,9 @@
 import os
+import discord
 from discord.ext import commands
 
-client = commands.Bot(command_prefix="uno.")
+activity = discord.Game('UNO')
+client = commands.Bot(command_prefix='uno.', status=discord.Status.online, activity=activity)
 
 
 @client.event
@@ -10,7 +12,7 @@ async def on_ready():
     for filename in os.listdir('./cogs'):
         if filename.endswith('.py'):
             client.load_extension(f'cogs.{filename[:-3]}')
-    await channel.send("I am ready.")
+    await channel.send('I am ready.')
 
 
 f = open('Token.txt', 'r')

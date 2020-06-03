@@ -1,12 +1,13 @@
 import random
 from uno.action import Action
+from uno.action import ActFlags
 from uno.card import Card
 from uno.player import Player
 
 
 class Game:
     def __init__(self):
-        self.game_stage = 0
+        self.game_stage = 'end'
         self.turn = 0
         self.order = 1
         self.players = []
@@ -68,17 +69,23 @@ class Game:
             self.draw_pile.insert(r, self.discard_pile.pop(0))
             self.discard_pile.insert(0, self.draw_pile.pop(0))
             top = self.discard_pile[0]
-        action = Action(-1, 1, top.name)
+        af = ActFlags(is_start=True)
+        action = Action(af, card=top.name)
         if top.number == 10:
             action.target = 0
             action.cards = self.pick_from_draw_pile(2)
             self.players[0].cards.extend(action.cards)
+            action.act_flags.has_target = True
+            action.act_flags.is_draw2 = True
         elif top.number == 11:
             self.order = -1
             self.turn = len(self.players) - 1
+            action.act_flags.is_reverse = True
         elif top.number == 12:
             action.target = 0
             self.turn = (self.turn + 1) % len(self.players)
+            action.act_flags.has_target = True
+            action.act_flags.is_skip = True
         self.action_history.append(action)
 
         self.p_prev = None
@@ -115,18 +122,24 @@ class Game:
             return None
         action = None
         n = self.playable_cards[index]
+        number = 0
         for c in self.p_now.cards:
             if n == c.name:
                 if c.number >= 50 and suit == -1:
                     return
-                action = Action(self.turn, 1, c.name)
+                af = ActFlags(has_actor=True, is_play=True, has_card=True)
+                action = Action(af, actor=self.turn, card=c.name)
                 if c.number >= 50:
+                    action.act_flags.has_color = True
+                    action.color = suit
                     c.suit = suit
-                    action.target = suit
                 self.discard_pile.insert(0, c)
                 self.p_now.cards.remove(c)
+                number = c.number
                 break
-        return self.next(action)
+        if action is None:
+            return None
+        return self.next(action, number)
 
     def draw(self):
         if not self.p_now:
@@ -134,66 +147,62 @@ class Game:
         c = self.draw_pile.pop(0)
         self.p_now.cards.append(c)
         top = self.discard_pile[0]
+        number = 0
         if c.suit != 4 and (c.suit == top.suit or c.number == top.number):
-            action = Action(self.p_now.turn, 2, c.name)
+            af = ActFlags(has_actor=True, is_draw=True, is_play=True, has_card=True)
+            action = Action(af, actor=self.turn, card=c.name)
             self.discard_pile.insert(0, c)
             self.p_now.cards.remove(c)
+            number = c.number
         else:
-            action = Action(self.p_now.turn, 0, c)
-        return self.next(action)
+            af = ActFlags(has_actor=True, is_draw=True)
+            action = Action(af, actor=self.turn, card=c.name)
+        return self.next(action, number)
 
-    def next(self, action):
-        number = 0
-        if action.act > 0:
-            number = action.card.number
+    def next(self, action, number=0, color=-1):
         if number == 12 or (number == 11 and len(self.players) == 2):
             self.turn = (self.turn + self.order) % len(self.players)
-            action.act = 8
+            action.act_flags.is_skip = True
+            action.act_flags.has_target = True
+            action.target = self.turn
         elif number == 11:
             self.order *= -1
-            action.act = 7
+            action.act_flags.is_reverse = True
         elif number == 10:
             self.turn = (self.turn + self.order) % len(self.players)
             pick = self.pick_from_draw_pile(2)
             self.p_next.cards.extend(pick)
             action.cards = pick
-            action.act = 6
-        elif number == 50:
-            action.act = 9
+            action.act_flags.is_draw2 = True
+            action.act_flags.has_target = True
+            action.target = self.turn
         elif number == 51:
             self.turn = (self.turn + self.order) % len(self.players)
             pick = self.pick_from_draw_pile(4)
             self.p_next.cards.extend(pick)
             action.cards = pick
-            action.act = 10
+            action.act_flags.is_draw4 = True
+            action.act_flags.has_target = True
+            action.target = self.turn
 
         self.action_history.append(action)
 
-        actions = [action]
         if len(self.p_now.cards) == 0:
-            actions.append(self.now_win())
+            self.end_game()
+            action.act_flags.is_end = True
         else:
             self.turn = (self.turn + self.order) % len(self.players)
             self.p_prev = self.p_now
             self.p_now = self.players[self.turn]
             self.p_next = self.players[(self.turn + self.order) % len(self.players)]
-        return actions
-
-    def now_win(self):
-        self.game_stage = 'join'
-        action = Action(self.turn, 4, 'None')
-        self.action_history.append(action)
-        self.players = []
-        self.new_deck()
+            self.set_playable()
         return action
 
     def end_game(self):
-        self.game_stage = 'join'
-        action = Action(-1, 5, 'None')
-        self.action_history.append(action)
-        self.players = []
-        self.new_deck()
-        return action
+        self.game_stage = 'end'
+        # self.players = []
+        # self.new_deck()
+        return
 
     def kick_now(self):
         return self.remove_player(self.p_now)
@@ -201,7 +210,8 @@ class Game:
     def remove_player(self, player):
         if self.game_stage != 'play':
             return
-        action = Action(self.players.index(player), 3, 'None')
+        af = ActFlags(has_actor=True, is_exit=True)
+        action = Action(af, actor=self.players.index(player))
         self.action_history.append(action)
         while len(player.cards) > 0:
             self.discard_pile.insert(1, player.cards.pop(0))
@@ -214,7 +224,6 @@ class Game:
             self.p_next = self.players[(self.turn + self.order) % len(self.players)]
         elif player == self.p_next:
             self.p_next = self.players[(self.turn + self.order) % len(self.players)]
-        actions = [action]
         if len(self.players) == 1:
-            actions.append(self.now_win())
-        return actions
+            action.act_flags.is_end = True
+        return action
