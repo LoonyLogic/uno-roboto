@@ -194,6 +194,3 @@ yes_perms = discord.PermissionOverwrite(read_messages=True, send_messages=True, 
 timeout = 15.0
 support = 'https://discord.gg/jzXweNr'
 invite = 'https://discord.com/api/oauth2/authorize?client_id=711287130378207362&permissions=11344&scope=bot'
-acts = {
-
-}
